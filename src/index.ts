@@ -147,8 +147,7 @@ async function safeReply(bot: TelegramBot, chatId: number, text: string, replyTo
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/```[\s\S]*?```/g, (match) => '<pre>' + match.replace(/```/g, '').trim() + '</pre>')
-    .replace(/\n/g, '<br>');
+    .replace(/```[\s\S]*?```/g, (match) => '<pre>' + match.replace(/```/g, '').trim() + '</pre>');
   
   for (const part of chunk(htmlText)) {
     try {
