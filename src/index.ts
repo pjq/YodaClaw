@@ -144,7 +144,7 @@ function chunk(text: string, max = 3800) {
 async function safeReply(bot: TelegramBot, chatId: number, text: string, replyToMessageId?: number) {
   for (const part of chunk(text)) {
     try {
-      const sent = await bot.sendMessage(chatId, part, { reply_to_message_id: replyToMessageId });
+      const sent = await bot.sendMessage(chatId, part, { reply_to_message_id: replyToMessageId, parse_mode: 'Markdown' });
       logger.info('reply', { chatId, replyTo: replyToMessageId, messageId: sent.message_id, len: part.length });
     } catch (e: any) {
       logger.error('sendMessage failed', { e: String(e) });
