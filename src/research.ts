@@ -103,9 +103,16 @@ export async function extractUrl(url: string, maxChars = 15000): Promise<string>
       const httpsModule = require('https');
       const httpModule = require('http');
       const isHttps = urlStr.startsWith('https://');
+      
+      // For HTTPS, we need to handle SSL issues
+      const options: any = {};
+      if (isHttps) {
+        options.rejectUnauthorized = false; // Ignore SSL cert errors
+      }
+      
       const client = isHttps ? httpsModule : httpModule;
       
-      client.get(urlStr, (res: any) => {
+      const req = client.get(urlStr, options, (res: any) => {
         // Handle redirects (301, 302, 303, 307, 308)
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           console.log(`[extract_url] Redirect: ${urlStr} -> ${res.headers.location}`);
@@ -151,7 +158,37 @@ export async function extractUrl(url: string, maxChars = 15000): Promise<string>
         });
         
         res.on('error', () => resolve(`Failed to fetch: ${urlStr}`));
-      }).on('error', () => resolve(`Failed to connect: ${urlStr}`));
+      });
+      
+      req.on('error', (e: any) => {
+        // Try with SSL disabled if it's an SSL error
+        if (e.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || e.code === 'CERT_HAS_EXPIRED') {
+          console.log(`[extract_url] SSL error, retrying without verification: ${urlStr}`);
+          const optionsNoSSL: any = { rejectUnauthorized: false };
+          const retryClient = isHttps ? httpsModule : httpModule;
+          retryClient.get(urlStr, optionsNoSSL, (res: any) => {
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              const newUrl = res.headers.location.startsWith('http') 
+                ? res.headers.location 
+                : new URL(res.headers.location, urlStr).href;
+              parseUrl(newUrl, depth + 1);
+              return;
+            }
+            const chunks: Buffer[] = [];
+            res.on('data', (d: Buffer) => chunks.push(d));
+            res.on('end', () => {
+              let html = Buffer.concat(chunks).toString('utf-8');
+              const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+              const title = titleMatch ? titleMatch[1] : 'No title';
+              html = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
+              let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n').replace(/<\/div>/gi, '\n').replace(/<\/h[1-6]>/gi, '\n\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
+              resolve(`Title: ${title}\nURL: ${urlStr}\n\nContent:\n${text.slice(0, maxChars)}`);
+            });
+          }).on('error', () => resolve(`Failed to connect (SSL): ${urlStr}`));
+        } else {
+          resolve(`Failed to connect: ${urlStr} - ${e.message}`);
+        }
+      });
     };
     
     parseUrl(url);
