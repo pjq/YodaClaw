@@ -105,8 +105,8 @@ YodaClaw will notify you via Telegram with results!
 - `/ping` - Check bot is alive
 - `/status` - Bot status
 - `/clear` - Clear conversation history
-- `/oclaws` - OpenClaw status
-- `/restart` - Restart OpenClaw
+- `/oclaws` - YodaClaw status
+- `/restart` - Restart YodaClaw
 
 ## Configuration
 

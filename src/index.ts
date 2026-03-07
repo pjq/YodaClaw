@@ -65,14 +65,14 @@ const SOUL = loadIdentityFile('SOUL.md');
 const USER = loadIdentityFile('USER.md');
 const AGENTS = loadIdentityFile('AGENTS.md');
 
-const SYSTEM_BASE = 'You are OpenClaw (YodaClaw), an AI assistant running on OpenClaw. Be concise, helpful, and precise. Default to Chinese if the user writes in Chinese; otherwise reply in the user\'s language. Keep answers under 3000 chars. When asked to search the web, ALWAYS use tavily_search tool. You have access to Agent Skills - use skills_list to see available skills. AUTOMATICALLY use relevant skills when the user\'s request matches a skill\'s description. Check skills FIRST before doing tasks manually.' +
+const SYSTEM_BASE = 'You are YodaClaw, an AI assistant running as YodaClaw. Be concise, helpful, and precise. Default to Chinese if the user writes in Chinese; otherwise reply in the user\'s language. Keep answers under 3000 chars. When asked to search the web, ALWAYS use tavily_search tool. You have access to Agent Skills - use skills_list to see available skills. AUTOMATICALLY use relevant skills when the user\'s request matches a skill\'s description. Check skills FIRST before doing tasks manually.' +
   (SOUL ? '\n\n## YodaClaw Identity\n' + SOUL.slice(0, 500) : '') +
   (USER ? '\n\n## User Context\n' + USER.slice(0, 500) : '');
 
-const SYSTEM_CODE = 'You are OpenClaw (YodaClaw), an AI assistant running on OpenClaw. Think step-by-step. If code is requested, produce minimal, runnable snippets. Keep answers under 4000 chars.' +
+const SYSTEM_CODE = 'You are YodaClaw, an AI assistant running as YodaClaw. Think step-by-step. If code is requested, produce minimal, runnable snippets. Keep answers under 4000 chars.' +
   (SOUL ? '\n\n' + SOUL.slice(0, 500) : '');
 
-const SYSTEM_IMAGE = 'You are OpenClaw (YodaClaw), an AI assistant running on OpenClaw. Analyze the image and provide a detailed description.' +
+const SYSTEM_IMAGE = 'You are YodaClaw, an AI assistant running as YodaClaw. Analyze the image and provide a detailed description.' +
   (SOUL ? '\n\n' + SOUL.slice(0, 300) : '');
 
 logger.info('identity_loaded', { 
@@ -549,7 +549,7 @@ async function llmToolLoop(messages: ChatMsg[], maxSteps = 12): Promise<string> 
     return `Completed ${toolHistory.length} tool calls. Last result: ${String(lastToolResult.content).slice(0, 500)}`;
   }
   
-  return 'No result after max steps.';
+  return 'No result after max steps. The task may have failed or the API returned an error.';
 }
 
 async function rawChat(messages: ChatMsg[], forceNoTools = false): Promise<any> {
@@ -914,7 +914,7 @@ function startBot() {
     { command: 'chatid', description: 'Get chat ID' },
     { command: 'status', description: 'Bot status' },
     { command: 'clear', description: 'Clear conversation history' },
-    { command: 'oclaws', description: 'OpenClaw status' },
+    { command: 'oclaws', description: 'YodaClaw status' },
     { command: 'restart', description: 'Restart OpenClaw' },
   ]).catch((e) => logger.error('setMyCommands failed', { e: String(e) }));
   
@@ -988,7 +988,7 @@ function startBot() {
           break;
         // OpenClaw actions
         case 'action_status':
-          answer = '📊 Checking OpenClaw status...';
+          answer = '📊 Checking YodaClaw status...';
           if (msgId) await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
           execCommand('/home/pjq/.nvm/versions/node/v24.13.0/bin/openclaw gateway status', 30000).then((result) => {
             stop();
@@ -996,12 +996,12 @@ function startBot() {
             bot.sendMessage(chatId, `📊 OpenClaw Status:\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``, { reply_to_message_id: msgId }).catch(() => {});
           }).catch(() => {
             stop();
-            bot.sendMessage(chatId, '❌ Failed to get OpenClaw status', { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, '❌ Failed to get YodaClaw status', { reply_to_message_id: msgId }).catch(() => {});
           });
           answer = '';
           break;
         case 'action_restart':
-          answer = '🔄 Restarting OpenClaw...';
+          answer = '🔄 Restarting YodaClaw...';
           if (msgId) await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
           execCommand('/home/pjq/.nvm/versions/node/v24.13.0/bin/openclaw gateway restart', 30000).then((result) => {
             stop();
@@ -1111,7 +1111,7 @@ function startBot() {
     try {
       // Slash commands (do NOT send to LLM)
       if (text.startsWith('/ping'))   { await safeReply(bot, chatId, 'pong', msg.message_id); return; }
-      if (text.startsWith('/status')) { await safeReply(bot, chatId, '✅ OpenClaw (YodaClaw) is running!', msg.message_id); return; }
+      if (text.startsWith('/status')) { await safeReply(bot, chatId, '✅ YodaClaw is running!', msg.message_id); return; }
       if (text.startsWith('/oclaws') || text.startsWith('/restart')) {
         const isRestart = text.startsWith('/restart');
         const stop = startTyping(bot, chatId);
@@ -1162,7 +1162,7 @@ function startBot() {
           return;
         }
         
-        await bot.sendMessage(chatId, '⚡ OpenClaw Quick Actions:', {
+        await bot.sendMessage(chatId, '⚡ YodaClaw Quick Actions:', {
           reply_markup: keyboard,
           reply_to_message_id: msg.message_id
         });
