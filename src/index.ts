@@ -142,9 +142,17 @@ function chunk(text: string, max = 3800) {
 }
 
 async function safeReply(bot: TelegramBot, chatId: number, text: string, replyToMessageId?: number) {
-  for (const part of chunk(text)) {
+  // Convert markdown to HTML for better Telegram compatibility
+  const htmlText = text
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.+?)\*/g, '<i>$1</i>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/```[\s\S]*?```/g, (match) => '<pre>' + match.replace(/```/g, '').trim() + '</pre>')
+    .replace(/\n/g, '<br>');
+  
+  for (const part of chunk(htmlText)) {
     try {
-      const sent = await bot.sendMessage(chatId, part, { reply_to_message_id: replyToMessageId, parse_mode: 'Markdown' });
+      const sent = await bot.sendMessage(chatId, part, { reply_to_message_id: replyToMessageId, parse_mode: 'HTML' });
       logger.info('reply', { chatId, replyTo: replyToMessageId, messageId: sent.message_id, len: part.length });
     } catch (e: any) {
       logger.error('sendMessage failed', { e: String(e) });
