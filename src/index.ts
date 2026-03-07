@@ -65,14 +65,28 @@ const SOUL = loadIdentityFile('SOUL.md');
 const USER = loadIdentityFile('USER.md');
 const AGENTS = loadIdentityFile('AGENTS.md');
 
-const SYSTEM_BASE = 'You are YodaClaw, an AI assistant running as YodaClaw. Be concise, helpful, and precise. Default to Chinese if the user writes in Chinese; otherwise reply in the user\'s language. Keep answers under 3000 chars. When asked to search the web, ALWAYS use tavily_search tool. You have access to Agent Skills - use skills_list to see available skills. AUTOMATICALLY use relevant skills when the user\'s request matches a skill\'s description. Check skills FIRST before doing tasks manually.' +
+// Get current datetime for system prompt
+function getCurrentDatetime(): string {
+  const now = new Date();
+  return now.toLocaleString('en-US', { 
+    timeZone: 'Asia/Shanghai', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  });
+}
+
+const SYSTEM_BASE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. Be concise, helpful, and precise. Default to Chinese if the user writes in Chinese; otherwise reply in the user\'s language. Keep answers under 3000 chars. When asked to search the web, ALWAYS use tavily_search tool. You have access to Agent Skills - use skills_list to see available skills. AUTOMATICALLY use relevant skills when the user\'s request matches a skill\'s description. Check skills FIRST before doing tasks manually.' +
   (SOUL ? '\n\n## YodaClaw Identity\n' + SOUL.slice(0, 500) : '') +
   (USER ? '\n\n## User Context\n' + USER.slice(0, 500) : '');
 
-const SYSTEM_CODE = 'You are YodaClaw, an AI assistant running as YodaClaw. Think step-by-step. If code is requested, produce minimal, runnable snippets. Keep answers under 4000 chars.' +
+const SYSTEM_CODE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. Think step-by-step. If code is requested, produce minimal, runnable snippets. Keep answers under 4000 chars.' +
   (SOUL ? '\n\n' + SOUL.slice(0, 500) : '');
 
-const SYSTEM_IMAGE = 'You are YodaClaw, an AI assistant running as YodaClaw. Analyze the image and provide a detailed description.' +
+const SYSTEM_IMAGE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. Analyze the image and provide a detailed description.' +
   (SOUL ? '\n\n' + SOUL.slice(0, 300) : '');
 
 logger.info('identity_loaded', { 
