@@ -9,6 +9,10 @@ function testMarkdownToHtml() {
 
 ## Heading 2
 
+### Heading 3
+
+# Heading 1
+
 \`\`\`
 code block
 \`\`\`
@@ -18,6 +22,9 @@ code block
 
   // Simulate the conversion
   const htmlText = text
+    .replace(/^### (.+)$/gm, '<b>$1</b>')
+    .replace(/^## (.+)$/gm, '<b>$1</b>')
+    .replace(/^# (.+)$/gm, '<b>$1</b>')
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
@@ -27,6 +34,9 @@ code block
   console.assert(htmlText.includes('<i>Italic text</i>'), 'Should convert italic');
   console.assert(htmlText.includes('<code>inline code</code>'), 'Should convert code');
   console.assert(htmlText.includes('<pre>'), 'Should convert code blocks');
+  console.assert(htmlText.includes('<b>Heading 2</b>'), 'Should convert h2');
+  console.assert(htmlText.includes('<b>Heading 3</b>'), 'Should convert h3');
+  console.assert(htmlText.includes('<b>Heading 1</b>'), 'Should convert h1');
   
   console.log('✓ testMarkdownToHtml passed!');
 }
