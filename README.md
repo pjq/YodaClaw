@@ -115,7 +115,7 @@ See `.env.example` for required variables:
 ```
 TELEGRAM_BOT_TOKEN=your_token
 OPENAI_API_KEY=your_key
-SAP_AI_CORE_URL=your_proxy_url
+OPENAI_BASE_URL=your_openai_compatible_proxy_url
 TAVILY_API_KEY=your_tavily_key
 ```
 
