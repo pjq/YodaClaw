@@ -144,6 +144,9 @@ function chunk(text: string, max = 3800) {
 async function safeReply(bot: TelegramBot, chatId: number, text: string, replyToMessageId?: number) {
   // Convert markdown to HTML for better Telegram compatibility
   const htmlText = text
+    .replace(/^### (.+)$/gm, '<b>$1</b>')
+    .replace(/^## (.+)$/gm, '<b>$1</b>')
+    .replace(/^# (.+)$/gm, '<b>$1</b>')
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/\*(.+?)\*/g, '<i>$1</i>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
