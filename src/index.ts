@@ -168,8 +168,9 @@ async function safeReply(bot: TelegramBot, chatId: number, text: string, replyTo
   
   for (const part of chunk(htmlText)) {
     try {
-      const sent = await bot.sendMessage(chatId, part, { reply_to_message_id: replyToMessageId, parse_mode: 'HTML' });
-      logger.info('reply', { chatId, replyTo: replyToMessageId, messageId: sent.message_id, len: part.length });
+      // Don't reply to message - just send normally
+      const sent = await bot.sendMessage(chatId, part, { parse_mode: 'HTML' });
+      logger.info('reply', { chatId, messageId: sent.message_id, len: part.length });
     } catch (e: any) {
       logger.error('sendMessage failed', { e: String(e) });
     }
@@ -1011,53 +1012,53 @@ function startBot() {
         // OpenClaw actions
         case 'action_status':
           answer = '📊 Checking YodaClaw status...';
-          if (msgId) await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
+          if (msgId) await bot.sendMessage(chatId, answer, {  });
           execCommand('/home/pjq/.nvm/versions/node/v24.13.0/bin/openclaw gateway status', 30000).then((result) => {
             stop();
             const output = result.stdout || result.stderr || 'Failed';
-            bot.sendMessage(chatId, `📊 OpenClaw Status:\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``, { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, `📊 OpenClaw Status:\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``, {  }).catch(() => {});
           }).catch(() => {
             stop();
-            bot.sendMessage(chatId, '❌ Failed to get YodaClaw status', { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, '❌ Failed to get YodaClaw status', {  }).catch(() => {});
           });
           answer = '';
           break;
         case 'action_restart':
           answer = '🔄 Restarting YodaClaw...';
-          if (msgId) await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
+          if (msgId) await bot.sendMessage(chatId, answer, {  });
           execCommand('/home/pjq/.nvm/versions/node/v24.13.0/bin/openclaw gateway restart', 30000).then((result) => {
             stop();
             const output = result.stdout || result.stderr || 'Restarted';
-            bot.sendMessage(chatId, `🔄 ${output.slice(0, 3000)}`, { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, `🔄 ${output.slice(0, 3000)}`, {  }).catch(() => {});
           }).catch(() => {
             stop();
-            bot.sendMessage(chatId, '❌ Failed to restart OpenClaw', { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, '❌ Failed to restart OpenClaw', {  }).catch(() => {});
           });
           answer = '';
           break;
         case 'action_logs':
           answer = '📜 Getting recent logs...';
-          if (msgId) await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
+          if (msgId) await bot.sendMessage(chatId, answer, {  });
           execCommand('/home/pjq/.nvm/versions/node/v24.13.0/bin/openclaw logs --lines 30', 30000).then((result) => {
             stop();
             const output = result.stdout || result.stderr || 'No logs';
-            bot.sendMessage(chatId, `📜 Logs:\n\`\`\`\n${output.slice(-3000)}\n\`\`\``, { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, `📜 Logs:\n\`\`\`\n${output.slice(-3000)}\n\`\`\``, {  }).catch(() => {});
           }).catch(() => {
             stop();
-            bot.sendMessage(chatId, '❌ Failed to get logs', { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, '❌ Failed to get logs', {  }).catch(() => {});
           });
           answer = '';
           break;
         case 'action_version':
           answer = '📌 Getting version info...';
-          if (msgId) await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
+          if (msgId) await bot.sendMessage(chatId, answer, {  });
           execCommand('/home/pjq/.nvm/versions/node/v24.13.0/bin/openclaw version', 30000).then((result) => {
             stop();
             const output = result.stdout || result.stderr || 'Unknown';
-            bot.sendMessage(chatId, `📌 Version:\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``, { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, `📌 Version:\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``, {  }).catch(() => {});
           }).catch(() => {
             stop();
-            bot.sendMessage(chatId, '❌ Failed to get version', { reply_to_message_id: msgId }).catch(() => {});
+            bot.sendMessage(chatId, '❌ Failed to get version', {  }).catch(() => {});
           });
           answer = '';
           break;
@@ -1068,7 +1069,7 @@ function startBot() {
       stop();
       
       if (answer && msgId) {
-        await bot.sendMessage(chatId, answer, { reply_to_message_id: msgId });
+        await bot.sendMessage(chatId, answer, {  });
       } else if (answer) {
         await bot.sendMessage(chatId, answer);
       }
