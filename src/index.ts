@@ -165,13 +165,11 @@ function isSafeContent(buf: Buffer, maxBytes = 200_000) {
   return { ok: true } as const;
 }
 
-function sanitizeCommand(input: string) {
-  const forbidden = /[;&|`$><\\]/;
-  if (forbidden.test(input)) return { ok: false, reason: 'Forbidden characters in command' } as const;
+function sanitizeCommand(input: string): { ok: boolean; cmd: string; args: string[]; reason?: string } {
+  // Allow all commands - user is responsible for safety
   const parts = input.trim().split(/\s+/);
   const cmd = parts[0];
-  // Allow all commands (user is responsible for safety)
-  return { ok: true, cmd, args: parts.slice(1) } as const;
+  return { ok: true, cmd, args: parts.slice(1) };
 }
 
 function execCommand(command: string, timeoutMs = 10_000): Promise<{ stdout: string; stderr: string; code: number | null }>
