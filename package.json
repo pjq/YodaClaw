@@ -1,0 +1,35 @@
+{
+  "name": "yodaclaw",
+  "version": "1.0.0",
+  "description": "AI Agent with memory, tools, MCP, and browser automation",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:run": "tsx test/run.ts",
+    "test:todo": "tsx test/todo.test.ts",
+    "test:task": "tsx test/task.test.ts",
+    "test:team": "tsx test/team.test.ts",
+    "test:context": "tsx test/context.test.ts",
+    "test:bg": "tsx test/background.test.ts",
+    "test:agent": "tsx test/agent-loop.test.ts",
+    "test:scheduler": "tsx test/scheduler.test.ts"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.55.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "grammy": "^1.21.0",
+    "node-telegram-bot-api": "^0.67.0",
+    "tavily-mcp": "^0.2.17"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/node": "^20.19.37",
+    "tsx": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.0.0"
+  }
+}

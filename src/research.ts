@@ -1,0 +1,158 @@
+/**
+ * Deep Research - Multi-step research with source aggregation
+ */
+
+import https from 'https';
+
+const TAVILY_API_KEY = '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';
+
+interface ResearchResult {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
+
+interface ResearchResponse {
+  results: ResearchResult[];
+  answer?: string;
+}
+
+/**
+ * Deep Research - Comprehensive research on a topic
+ */
+export async function deepResearch(query: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      api_key: TAVILY_API_KEY,
+      query,
+      search_depth: 'advanced',
+      max_results: 10,
+      include_answer: true,
+      include_images: false,
+      include_raw_content: true,
+      include_domains: [], // All domains
+      exclude_domains: []
+    });
+
+    const options = {
+      hostname: 'api.tavily.com',
+      path: '/search',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks).toString();
+          const data: ResearchResponse = JSON.parse(body);
+          
+          if (data.results && data.results.length > 0) {
+            const lines = [`🔬 **Deep Research: ${query}**\n`];
+            
+            // Add AI answer if available
+            if (data.answer) {
+              lines.push(`## 📝 Summary\n${data.answer}\n`);
+            }
+            
+            // Add sources
+            lines.push(`## 📚 Sources (${data.results.length})`);
+            for (const result of data.results) {
+              lines.push(`\n### ${result.title}`);
+              lines.push(`🔗 ${result.url}`);
+              lines.push(`Score: ${(result.score * 100).toFixed(0)}%`);
+              if (result.content) {
+                lines.push(`\n${result.content.slice(0, 500)}...`);
+              }
+            }
+            
+            resolve(lines.join('\n'));
+          } else {
+            resolve('No results found for research query.');
+          }
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
+/**
+ * Extract content from a URL
+ */
+export async function extractUrl(url: string, maxChars = 15000): Promise<string> {
+  return new Promise((resolve) => {
+    https.get(url, (res) => {
+      const chunks: Buffer[] = [];
+      let total = 0;
+      
+      res.on('data', (d) => {
+        total += d.length;
+        if (total <= maxChars) chunks.push(d);
+      });
+      
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        let html = buffer.toString('utf-8');
+        
+        // Extract title
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1] : 'No title';
+        
+        // Remove scripts and styles
+        html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+        html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+        
+        // Convert HTML to text
+        let text = html
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<\/h[1-6]>/gi, '\n\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+        
+        resolve(`Title: ${title}\nURL: ${url}\n\nContent:\n${text.slice(0, maxChars)}`);
+      });
+      
+      res.on('error', () => resolve(`Failed to fetch: ${url}`));
+    }).on('error', () => resolve(`Failed to connect: ${url}`));
+  });
+}
+
+/**
+ * Compare/multiple sources on a topic
+ */
+export async function compareSources(topics: string[]): Promise<string> {
+  const results: { topic: string; sources: ResearchResult[] }[] = [];
+  
+  for (const topic of topics) {
+    try {
+      const result = await deepResearch(topic);
+      results.push({ topic, sources: [] });
+    } catch (e) {
+      results.push({ topic, sources: [] });
+    }
+  }
+  
+  const lines = ['## 🔍 Multi-Source Comparison\n'];
+  
+  for (const r of results) {
+    lines.push(`\n### ${r.topic}`);
+    lines.push('(See detailed research above)');
+  }
+  
+  return lines.join('\n');
+}

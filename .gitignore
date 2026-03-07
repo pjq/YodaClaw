@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment - CRITICAL
+.env
+.env.local
+.env.*
+!.env.example
+
+# Sessions & Logs
+sessions/
+*.log
+
+# Memory & Runtime Data
+memory/
+workspace/*.json
+workspace/*.txt
+!workspace/.gitkeep
+
+# OS
+.DS_Store
+.DS_Store?
+
+# IDE
+.vscode/
+.idea/
+
+# Test
+test-workspace/
+coverage/
+
+# Config with secrets (except examples)
+config/
+*.credentials.json
+auth.json
+models.json
