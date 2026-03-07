@@ -14,7 +14,9 @@
     "test:context": "tsx test/context.test.ts",
     "test:bg": "tsx test/background.test.ts",
     "test:agent": "tsx test/agent-loop.test.ts",
-    "test:scheduler": "tsx test/scheduler.test.ts"
+    "test:scheduler": "tsx test/scheduler.test.ts",
+    "test:skills": "tsx test/skills.test.ts",
+    "test:markdown": "tsx test/markdown.test.ts"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.55.0",
