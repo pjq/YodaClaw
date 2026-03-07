@@ -93,42 +93,68 @@ export async function deepResearch(query: string): Promise<string> {
  */
 export async function extractUrl(url: string, maxChars = 15000): Promise<string> {
   return new Promise((resolve) => {
-    https.get(url, (res) => {
-      const chunks: Buffer[] = [];
-      let total = 0;
+    // Parse URL to handle redirects manually
+    const parseUrl = (urlStr: string, depth = 0): void => {
+      if (depth > 5) {
+        resolve('Too many redirects');
+        return;
+      }
       
-      res.on('data', (d) => {
-        total += d.length;
-        if (total <= maxChars) chunks.push(d);
-      });
+      const httpsModule = require('https');
+      const httpModule = require('http');
+      const isHttps = urlStr.startsWith('https://');
+      const client = isHttps ? httpsModule : httpModule;
       
-      res.on('end', () => {
-        const buffer = Buffer.concat(chunks);
-        let html = buffer.toString('utf-8');
+      client.get(urlStr, (res: any) => {
+        // Handle redirects (301, 302, 303, 307, 308)
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          console.log(`[extract_url] Redirect: ${urlStr} -> ${res.headers.location}`);
+          // Handle relative redirects
+          const newUrl = res.headers.location.startsWith('http') 
+            ? res.headers.location 
+            : new URL(res.headers.location, urlStr).href;
+          parseUrl(newUrl, depth + 1);
+          return;
+        }
         
-        // Extract title
-        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-        const title = titleMatch ? titleMatch[1] : 'No title';
+        const chunks: Buffer[] = [];
+        let total = 0;
         
-        // Remove scripts and styles
-        html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-        html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+        res.on('data', (d: Buffer) => {
+          total += d.length;
+          if (total <= maxChars) chunks.push(d);
+        });
         
-        // Convert HTML to text
-        let text = html
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/p>/gi, '\n\n')
-          .replace(/<\/div>/gi, '\n')
-          .replace(/<\/h[1-6]>/gi, '\n\n')
-          .replace(/<[^>]+>/g, '')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          let html = buffer.toString('utf-8');
+          
+          // Extract title
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const title = titleMatch ? titleMatch[1] : 'No title';
+          
+          // Remove scripts and styles
+          html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+          html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+          
+          // Convert HTML to text
+          let text = html
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>/gi, '\n\n')
+            .replace(/<\/div>/gi, '\n')
+            .replace(/<\/h[1-6]>/gi, '\n\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+          
+          resolve(`Title: ${title}\nURL: ${urlStr}\n\nContent:\n${text.slice(0, maxChars)}`);
+        });
         
-        resolve(`Title: ${title}\nURL: ${url}\n\nContent:\n${text.slice(0, maxChars)}`);
-      });
-      
-      res.on('error', () => resolve(`Failed to fetch: ${url}`));
-    }).on('error', () => resolve(`Failed to connect: ${url}`));
+        res.on('error', () => resolve(`Failed to fetch: ${urlStr}`));
+      }).on('error', () => resolve(`Failed to connect: ${urlStr}`));
+    };
+    
+    parseUrl(url);
   });
 }
 
