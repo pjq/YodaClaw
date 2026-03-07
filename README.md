@@ -116,8 +116,19 @@ See `.env.example` for required variables:
 TELEGRAM_BOT_TOKEN=your_token
 OPENAI_API_KEY=your_key
 OPENAI_BASE_URL=your_openai_compatible_proxy_url
+MODEL_NAME=your_model  # e.g., gpt-5, gpt-4o, claude-sonnet-4, etc.
 TAVILY_API_KEY=your_tavily_key
 ```
+
+## Supported Models
+
+Any OpenAI-compatible model is supported via `OPENAI_BASE_URL`:
+- GPT-5, GPT-4o, GPT-4.1
+- Claude Sonnet 4.5, Claude Opus 4
+- Gemini 2.5 Pro
+- And any other OpenAI-compatible model
+
+Set `MODEL_NAME` in `.env` to specify which model to use.
 
 ## Identity Files
 
