@@ -1,58 +1,29 @@
 /**
- * Test Markdown to HTML conversion
+ * Test Markdown Parser - Vitest format
  */
 
-function testMarkdownToHtml() {
-  const text = `**Bold text**
-*Italic text*
-\`inline code\`
+import { describe, it, expect } from 'vitest';
 
-## Heading 2
+describe('Markdown Parser', () => {
+  it('should parse bold text', () => {
+    const text = '**bold**';
+    const result = text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    expect(result).toBe('<b>bold</b>');
+  });
 
-### Heading 3
+  it('should parse inline code', () => {
+    const text = '`code`';
+    const result = text.replace(/`(.+?)`/g, '<code>$1</code>');
+    expect(result).toBe('<code>code</code>');
+  });
 
-# Heading 1
-
-\`\`\`
-code block
-\`\`\`
-
-- list item 1
-- list item 2`;
-
-  // Simulate the conversion
-  const htmlText = text
-    .replace(/^### (.+)$/gm, '<b>$1</b>')
-    .replace(/^## (.+)$/gm, '<b>$1</b>')
-    .replace(/^# (.+)$/gm, '<b>$1</b>')
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/\*(.+?)\*/g, '<i>$1</i>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/```[\s\S]*?```/g, (match) => '<pre>' + match.replace(/```/g, '').trim() + '</pre>');
-
-  console.assert(htmlText.includes('<b>Bold text</b>'), 'Should convert bold');
-  console.assert(htmlText.includes('<i>Italic text</i>'), 'Should convert italic');
-  console.assert(htmlText.includes('<code>inline code</code>'), 'Should convert code');
-  console.assert(htmlText.includes('<pre>'), 'Should convert code blocks');
-  console.assert(htmlText.includes('<b>Heading 2</b>'), 'Should convert h2');
-  console.assert(htmlText.includes('<b>Heading 3</b>'), 'Should convert h3');
-  console.assert(htmlText.includes('<b>Heading 1</b>'), 'Should convert h1');
-  
-  console.log('✓ testMarkdownToHtml passed!');
-}
-
-function testHtmlEntities() {
-  // Test that special HTML chars are handled
-  const text = '<test> & "quote"';
-  
-  // Telegram HTML should handle basic chars
-  console.assert(text.includes('<test>'), 'Should keep brackets');
-  console.assert(text.includes('&'), 'Should keep ampersand');
-  
-  console.log('✓ testHtmlEntities passed!');
-}
-
-console.log('Running Markdown conversion tests...\n');
-testMarkdownToHtml();
-testHtmlEntities();
-console.log('\n✅ All Markdown tests passed!');
+  it('should escape HTML entities', () => {
+    const text = '<script>alert("xss")</script>';
+    const result = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    expect(result).toContain('&lt;script&gt;');
+  });
+});

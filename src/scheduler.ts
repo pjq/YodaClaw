@@ -166,6 +166,15 @@ export class Scheduler {
     this.saveConfig();
     return `Removed: ${task.name}`;
   }
+  
+  // Manually trigger a task to run now
+  async runNow(idOrName: string): Promise<string> {
+    const task = this.config.schedules.find(t => t.id === idOrName || t.name === idOrName);
+    if (!task) return `Not found: ${idOrName}`;
+    console.log(`[Scheduler] Manually running task: ${task.name}`);
+    await this.runTask(task);
+    return `Task triggered: ${task.name}`;
+  }
 
   list(): string {
     if (!this.config.schedules.length) return 'No schedules.';
@@ -178,10 +187,15 @@ export class Scheduler {
     if (!task.enabled) return;
     this.stopTask(task.id);
     
+    console.log(`[Scheduler] Starting task: ${task.name}, schedule: ${task.schedule}, delay: ${task.delay}`);
+    
     if (task.schedule === 'once' && task.delay) {
+      console.log(`[Scheduler] Setting timeout for ${task.delay}ms (${task.delay/60000} minutes)`);
       const timeout = setTimeout(() => {
+        console.log(`[Scheduler] Timeout fired for task: ${task.name}`);
         this.runTask(task);
         const idx = this.config.schedules.findIndex(t => t.id === task.id);
+        console.log(`[Scheduler] Removing task ${task.id} from schedule, found at index ${idx}`);
         if (idx >= 0) this.config.schedules.splice(idx, 1);
         this.saveConfig();
       }, task.delay);
@@ -210,20 +224,75 @@ export class Scheduler {
   }
 
   private async runTask(task: ScheduledTask) {
+    console.log(`[Scheduler] EXECUTING task: ${task.name} at ${new Date().toISOString()}`);
     task.lastRun = Date.now();
     this.saveConfig();
-    console.log(`[Scheduler] Running: ${task.name}`);
+    console.log(`[Scheduler] Running: ${task.name} - ${task.action}`);
     
     let result = '';
+    const actionLower = task.action.toLowerCase();
+    
     try {
-      if (task.action === 'research' && task.params?.query) {
-        result = await runResearch(task.params.query);
-      } else {
-        result = `[${task.action}]`;
+      // Research action - run deep research
+      if (task.action === 'research' || actionLower.includes('research') || actionLower.includes('deep research')) {
+        const query = task.params?.query || task.name;
+        result = await runResearch(query);
+      }
+      // Weather action - get weather info
+      else if (actionLower.includes('weather')) {
+        const locationMatch = task.action.match(/weather(?: in| for)?\s+(.+)/i) || task.name.match(/weather(?: in| for)?\s+(.+)/i);
+        const location = locationMatch ? locationMatch[1] : 'Shanghai';
+        result = await this.getWeather(location);
+      }
+      // AI report action - generate daily AI report
+      else if (actionLower.includes('ai report') || actionLower.includes('daily report')) {
+        result = await this.getAIReport();
+      }
+      // War status / news check
+      else if (actionLower.includes('war status') || actionLower.includes('news') || actionLower.includes('status check')) {
+        const topic = task.params?.query || task.name;
+        result = await runResearch(topic);
+      }
+      // Default - try research as fallback
+      else {
+        result = await runResearch(task.action);
       }
     } catch (e: any) { result = `Error: ${e.message}`; }
     
     for (const cb of this.callbacks) cb(task, result);
+  }
+  
+  private async getWeather(location: string): Promise<string> {
+    return new Promise((resolve) => {
+      const https = require('https');
+      const encodedLoc = encodeURIComponent(location);
+      const url = `https://wttr.in/${encodedLoc}?format=j1`;
+      
+      https.get(url, (res: any) => {
+        let data = '';
+        res.on('data', (chunk: any) => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            const current = json.current_condition[0];
+            const result = `📍 **Weather in ${location}**\n\n` +
+              `🌡️ Temperature: ${current.temp_C}°C (${current.temp_F}°F)\n` +
+              `💧 Humidity: ${current.humidity}%\n` +
+              `🌬️ Wind: ${current.windspeedKmph} km/h\n` +
+              `☁️ Condition: ${current.weatherDesc[0].value}\n` +
+              `🤒 Feels like: ${current.FeelsLikeC}°C`;
+            resolve(result);
+          } catch {
+            resolve(`Weather data unavailable for ${location}`);
+          }
+        });
+      }).on('error', () => resolve(`Failed to get weather for ${location}`));
+    });
+  }
+  
+  private async getAIReport(): Promise<string> {
+    // Generate a simple AI news summary
+    return await runResearch('latest AI technology news today');
   }
 
   stopAll() { for (const [id] of this.intervals) this.stopTask(id); }

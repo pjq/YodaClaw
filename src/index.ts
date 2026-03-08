@@ -43,10 +43,13 @@ app.use((req, _res, next) => {
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const STARTUP_NOTIFY_CHAT_ID = process.env.STARTUP_NOTIFY_CHAT_ID ? Number(process.env.STARTUP_NOTIFY_CHAT_ID) : undefined;
+const STARTUP_BY = process.env.STARTUP_BY || 'Unknown';
+const STARTUP_REASON = process.argv[2] || 'manual';
 const PORT = Number(process.env.PORT || 3000);
 const WORKSPACE_ROOT = path.resolve('/home/pjq/clawd/YodaClaw');
 const ENABLE_TOOLS = process.env.ENABLE_TOOLS === '1';
 const ENABLE_MCP = process.env.ENABLE_MCP === '1';
+const MAX_TOOL_STEPS = Number(process.env.MAX_TOOL_STEPS) || 20;
 
 // Load identity files
 function loadIdentityFile(filename: string): string {
@@ -79,15 +82,14 @@ function getCurrentDatetime(): string {
   });
 }
 
-const SYSTEM_BASE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. Be concise, helpful, and precise. Default to Chinese if the user writes in Chinese; otherwise reply in the user\'s language. Keep answers under 3000 chars. When asked to search the web, ALWAYS use tavily_search tool. You have access to Agent Skills - use skills_list to see available skills. AUTOMATICALLY use relevant skills when the user\'s request matches a skill\'s description. Check skills FIRST before doing tasks manually.' +
+const SYSTEM_BASE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. OS: Linux (Ubuntu). You have access to shell commands via exec tool - use shell for file operations, running scripts, git, curl, etc. Be concise, helpful, and precise. Default to Chinese if the user writes in Chinese; otherwise reply in the user\'s language. Keep answers under 3000 chars. When asked to search the web, ALWAYS use tavily_search tool. You have access to Agent Skills - use skills_list to see available skills. AUTOMATICALLY use relevant skills when the user\'s request matches a skill\'s description. Check skills FIRST before doing tasks manually. PROACTIVELY use exec/shell commands when they\'re the best tool for the job (file ops, git, running scripts, API calls, etc).' +
   (SOUL ? '\n\n## YodaClaw Identity\n' + SOUL.slice(0, 500) : '') +
   (USER ? '\n\n## User Context\n' + USER.slice(0, 500) : '');
 
 const SYSTEM_CODE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. Think step-by-step. If code is requested, produce minimal, runnable snippets. Keep answers under 4000 chars.' +
   (SOUL ? '\n\n' + SOUL.slice(0, 500) : '');
 
-const SYSTEM_IMAGE = 'You are YodaClaw, an AI assistant running as YodaClaw. Current datetime: ' + getCurrentDatetime() + '. Analyze the image and provide a detailed description.' +
-  (SOUL ? '\n\n' + SOUL.slice(0, 300) : '');
+// Use SYSTEM_BASE for all inputs including images
 
 logger.info('identity_loaded', { 
   hasSoul: !!SOUL, 
@@ -147,6 +149,17 @@ if (!TELEGRAM_BOT_TOKEN) {
   logger.error('Missing TELEGRAM_BOT_TOKEN in .env');
   process.exit(1);
 }
+
+// Log all signals with stack trace to find culprit
+['SIGTERM', 'SIGINT', 'SIGHUP', 'SIGUSR1', 'SIGUSR2'].forEach(sig => {
+  process.on(sig, () => {
+    console.log(`[SIGNAL] ${sig} received at:`, new Date().toISOString());
+    console.log('[SIGNAL] Stack trace:');
+    console.trace();
+  });
+});
+process.on('SIGINT', () => { console.log('[SIGNAL] SIGINT received, shutting down...'); process.exit(0); });
+process.on('exit', (code) => console.log(`[EXIT] Process exiting with code ${code}`));
 
 // ----- Utilities -----
 function chunk(text: string, max = 3800) {
@@ -284,7 +297,7 @@ async function llmChat(messages: ChatMsg[], temperature = 0.7): Promise<string> 
     { type: 'function', function: { name: 'task_list', description: 'List all tasks', parameters: { type: 'object', properties: {} } } },
     { type: 'function', function: { name: 'schedule_add', description: 'Add a scheduled task (e.g., "30m", "1h", "1d")', parameters: { type: 'object', properties: { name: { type: 'string' }, schedule: { type: 'string' }, action: { type: 'string' } }, required: ['name', 'schedule', 'action'] } } },
     { type: 'function', function: { name: 'schedule_list', description: 'List scheduled tasks', parameters: { type: 'object', properties: {} } } },
-    { type: 'function', function: { name: 'schedule_remove', description: 'Remove a scheduled task', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } },
+    { type: 'function', function: { name: 'schedule_remove', description: 'Remove a scheduled task', parameters: { type: 'object', properties: { id: { type: 'string', description: 'The task ID to remove' }, task_id: { type: 'string', description: 'Alternative task ID parameter (alias for id)' } }, required: [] } } },
     { type: 'function', function: { name: 'memory_add', description: 'Add a memory entry', parameters: { type: 'object', properties: { content: { type: 'string' }, tags: { type: 'array', items: { type: 'string' } } }, required: ['content'] } } },
     { type: 'function', function: { name: 'memory_search', description: 'Search memories', parameters: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number' } }, required: ['query'] } } },
     { type: 'function', function: { name: 'memory_recent', description: 'Get recent memories', parameters: { type: 'object', properties: { days: { type: 'number' }, limit: { type: 'number' } } } } },
@@ -409,7 +422,7 @@ async function llmDefaultAnswer(text: string, chatId?: number): Promise<string> 
   return answer;
 }
 
-async function llmToolLoop(messages: ChatMsg[], maxSteps = 12): Promise<string> {
+async function llmToolLoop(messages: ChatMsg[], maxSteps = MAX_TOOL_STEPS): Promise<string> {
   let toolsFailed = false;
   const toolHistory: string[] = []; // Track tool calls to avoid repeats
   
@@ -596,7 +609,7 @@ async function rawChat(messages: ChatMsg[], forceNoTools = false): Promise<any> 
     { type: 'function', function: { name: 'task_list', parameters: { type: 'object', properties: {} } } },
     { type: 'function', function: { name: 'schedule_add', parameters: { type: 'object', properties: { name: { type: 'string' }, schedule: { type: 'string' }, action: { type: 'string' } }, required: ['name', 'schedule', 'action'] } } },
     { type: 'function', function: { name: 'schedule_list', parameters: { type: 'object', properties: {} } } },
-    { type: 'function', function: { name: 'schedule_remove', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } } },
+    { type: 'function', function: { name: 'schedule_remove', parameters: { type: 'object', properties: { id: { type: 'string' }, task_id: { type: 'string' } }, required: [] } } },
     { type: 'function', function: { name: 'memory_add', parameters: { type: 'object', properties: { content: { type: 'string' }, tags: { type: 'array', items: { type: 'string' } } }, required: ['content'] } } },
     { type: 'function', function: { name: 'memory_search', parameters: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number' } } } } },
     { type: 'function', function: { name: 'memory_recent', parameters: { type: 'object', properties: { days: { type: 'number' }, limit: { type: 'number' } } } } },
@@ -649,7 +662,11 @@ async function rawChat(messages: ChatMsg[], forceNoTools = false): Promise<any> 
 
 function startTyping(bot: TelegramBot, chatId: number) {
   const iv = setInterval(() => { bot.sendChatAction(chatId, 'typing').catch(() => {}); }, 4000);
-  return () => clearInterval(iv);
+  return () => {
+    clearInterval(iv);
+    // Send cancel to immediately clear typing indicator
+    bot.sendChatAction(chatId, 'cancel').catch(() => {});
+  };
 }
 
 // ----- Command Handlers -----
@@ -791,6 +808,16 @@ async function dispatchTool(name?: string, args: any = {}): Promise<any> {
         return TASK_MGR.list();
       // Scheduler tools
       case 'schedule_add':
+        // Validate required parameters
+        if (!args.name) {
+          return 'Error: name is required';
+        }
+        if (!args.schedule) {
+          return 'Error: schedule is required';
+        }
+        if (!args.action) {
+          return 'Error: action is required';
+        }
         return SCHEDULER.add(
           String(args.name), 
           String(args.schedule), 
@@ -798,8 +825,20 @@ async function dispatchTool(name?: string, args: any = {}): Promise<any> {
         );
       case 'schedule_list':
         return SCHEDULER.list();
+      case 'schedule_run':
+        // Manually trigger a scheduled task
+        const runId = args.id || args.task_id;
+        if (!runId) {
+          return 'Error: id or task_id is required';
+        }
+        return await SCHEDULER.runNow(String(runId));
       case 'schedule_remove':
-        return SCHEDULER.remove(String(args.id));
+        // Accept either id or task_id for compatibility
+        const removeId = args.id || args.task_id;
+        if (!removeId) {
+          return 'Error: id or task_id is required';
+        }
+        return SCHEDULER.remove(String(removeId));
       // Memory tools
       case 'memory_add':
         return MEMORY.add(
@@ -945,30 +984,45 @@ function startBot() {
     .then((me) => logger.info('getMe', me))
     .catch((e) => logger.error('getMe failed', { e: String(e) }));
 
-  if (STARTUP_NOTIFY_CHAT_ID && Number.isFinite(STARTUP_NOTIFY_CHAT_ID)) {
+  // Disable startup notification - causes spam on watchdog restarts
+  // Only send if it's been more than 1 hour since last notification
+  const startedFile = path.join(WORKSPACE_ROOT, 'memory', '.yodaclaw_started');
+  let lastStart = 0;
+  if (fs.existsSync(startedFile)) {
+    lastStart = parseInt(fs.readFileSync(startedFile, 'utf-8')) || 0;
+  }
+  const ONE_HOUR = 60 * 60 * 1000;
+  const forceNotify = process.env.FORCE_STARTUP_NOTIFY === '1';
+  const shouldNotify = forceNotify || (Date.now() - lastStart) > ONE_HOUR;
+  fs.writeFileSync(startedFile, Date.now().toString());
+  
+  if (shouldNotify && STARTUP_NOTIFY_CHAT_ID && Number.isFinite(STARTUP_NOTIFY_CHAT_ID)) {
     const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai', hour12: false });
-    bot.sendMessage(STARTUP_NOTIFY_CHAT_ID, `🤖 YodaClaw is online at ${now}`)
+    bot.sendMessage(STARTUP_NOTIFY_CHAT_ID, `🤖 YodaClaw started by ${STARTUP_BY} (${STARTUP_REASON}) at ${now}`)
       .then(() => logger.info('startup notify sent', { chatId: STARTUP_NOTIFY_CHAT_ID }))
       .catch((e) => logger.error('startup notify failed', { e: String(e) }));
+  } else {
+    console.log('[Startup] Skipping notification - only notify once per hour');
   }
   
   // Set up scheduler callback to notify via Telegram
   schedulerCallback = async (task: any, result: string) => {
+    console.log(`[Callback] Task completed: ${task.name}, result length: ${result.length}`);
     if (STARTUP_NOTIFY_CHAT_ID) {
       const msg = `📅 **Scheduled: ${task.name}**\n\n${result.slice(0, 1500)}`;
+      console.log(`[Callback] Sending message to ${STARTUP_NOTIFY_CHAT_ID}: ${msg.slice(0, 100)}...`);
       try {
         await bot.sendMessage(STARTUP_NOTIFY_CHAT_ID, msg, { parse_mode: 'Markdown' });
+        console.log(`[Callback] Message sent successfully`);
       } catch (e) {
         logger.error('scheduler notify failed', { e: String(e) });
       }
+    } else {
+      console.log(`[Callback] No STARTUP_NOTIFY_CHAT_ID configured`);
     }
   };
   
-  // Check for due scheduled tasks every minute
-  setInterval(() => {
-    // Tasks are handled by the scheduler's interval - this just logs
-    logger.debug('scheduler heartbeat');
-  }, 60000);
+  // Check for due scheduled tasks every minute (silent - no logging to reduce log size)
 
   bot.on('polling_error', (err: any) => logger.error('polling_error', { code: err?.code, message: String(err) }));
 
@@ -1112,7 +1166,7 @@ function startBot() {
         };
         
         const messages: ChatMsg[] = [
-          { role: 'system', content: SYSTEM_IMAGE },
+          { role: 'system', content: SYSTEM_BASE },
           visionMsg
         ];
         

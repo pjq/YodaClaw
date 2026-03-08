@@ -13,11 +13,31 @@ if (LOG_FILE) {
   try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
 }
 
-function ts() { return new Date().toISOString(); }
+const MAX_LOG_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+
+function rotateLogIfNeeded() {
+  try {
+    const stats = fs.statSync(LOG_PATH);
+    if (stats.size > MAX_LOG_SIZE) {
+      // Rename old log with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const rotatedPath = LOG_PATH.replace('.log', `-${timestamp}.log`);
+      fs.renameSync(LOG_PATH, rotatedPath);
+      console.log(`[Logger] Rotated log to ${rotatedPath}`);
+    }
+  } catch {}
+}
+
+function ts() { return new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai', hour12: false }).replace(',', ''); }
 function write(line: string) {
   const out = `${line}\n`;
   try { process.stdout.write(out); } catch {}
-  if (LOG_FILE) { try { fs.appendFileSync(LOG_PATH, out); } catch {} }
+  if (LOG_FILE) { 
+    try { 
+      rotateLogIfNeeded();
+      fs.appendFileSync(LOG_PATH, out); 
+    } catch {} 
+  }
 }
 function should(level: Level) { return levelOrder[level] >= levelOrder[LOG_LEVEL]; }
 
